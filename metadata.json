@@ -1,0 +1,6 @@
+{
+  "name": "PARADOXE",
+  "description": "AR Object Explorer using Yandex Visual Search and Wikipedia API.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["AR"]
+}
