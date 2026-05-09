@@ -7,15 +7,21 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel()
 ) {
-    var iamToken by remember { mutableStateOf("") }
-    var folderId by remember { mutableStateOf("") }
-    var updateInterval by remember { mutableStateOf(2.5f) }
+    val savedIamToken by viewModel.iamToken.collectAsState()
+    val savedFolderId by viewModel.folderId.collectAsState()
+    val savedInterval by viewModel.updateInterval.collectAsState()
+
+    var iamToken by remember(savedIamToken) { mutableStateOf(savedIamToken) }
+    var folderId by remember(savedFolderId) { mutableStateOf(savedFolderId) }
+    var updateInterval by remember(savedInterval) { mutableStateOf(savedInterval) }
 
     Scaffold(
         topBar = {
@@ -57,7 +63,10 @@ fun SettingsScreen(
             Spacer(Modifier.weight(1f))
 
             Button(
-                onClick = { /* Save to DataStore */ },
+                onClick = { 
+                    viewModel.saveSettings(iamToken, folderId, updateInterval)
+                    onBack()
+                },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Сохранить")

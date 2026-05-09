@@ -56,6 +56,10 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideSettingsManager(@ApplicationContext context: Context): SettingsManager = SettingsManager(context)
+
+    @Provides
+    @Singleton
     fun provideObjectRepository(
         yandexApi: YandexSearchApi,
         wikipediaApi: WikipediaApi,

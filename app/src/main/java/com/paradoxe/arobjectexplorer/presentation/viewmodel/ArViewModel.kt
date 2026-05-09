@@ -2,6 +2,7 @@ package com.paradoxe.arobjectexplorer.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.paradoxe.arobjectexplorer.data.local.SettingsManager
 import com.paradoxe.arobjectexplorer.domain.models.ScannedObject
 import com.paradoxe.arobjectexplorer.domain.repository.ObjectRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -14,19 +15,41 @@ data class ArUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val updateInterval: Long = 2500L,
-    val lang: String = "ru"
+    val lang: String = "ru",
+    val iamToken: String = "",
+    val folderId: String = ""
 )
 
 @HiltViewModel
 class ArViewModel @Inject constructor(
-    private val repository: ObjectRepository
+    private val repository: ObjectRepository,
+    private val settingsManager: SettingsManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ArUiState())
     val uiState: StateFlow<ArUiState> = _uiState.asStateFlow()
 
-    fun onProcessFrame(imageBase64: String, imageHash: String, iamToken: String, folderId: String) {
-        if (_uiState.value.isLoading) return
+    init {
+        viewModelScope.launch {
+            combine(
+                settingsManager.iamToken,
+                settingsManager.folderId,
+                settingsManager.updateInterval
+            ) { token, folder, interval ->
+                Triple(token, folder, interval)
+            }.collect { (token, folder, interval) ->
+                _uiState.update { it.copy(
+                    iamToken = token,
+                    folderId = folder,
+                    updateInterval = interval
+                ) }
+            }
+        }
+    }
+
+    fun onProcessFrame(imageBase64: String, imageHash: String) {
+        val state = _uiState.value
+        if (state.isLoading || state.iamToken.isEmpty() || state.folderId.isEmpty()) return
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
@@ -34,9 +57,9 @@ class ArViewModel @Inject constructor(
             repository.identifyObject(
                 imageBase64 = imageBase64,
                 imageHash = imageHash,
-                iamToken = iamToken,
-                folderId = folderId,
-                lang = _uiState.value.lang
+                iamToken = state.iamToken,
+                folderId = state.folderId,
+                lang = state.lang
             ).onSuccess { scannedObject ->
                 _uiState.update { it.copy(detectedObject = scannedObject, isLoading = false) }
             }.onFailure { exception ->

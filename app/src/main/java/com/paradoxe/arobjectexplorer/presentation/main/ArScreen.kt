@@ -112,8 +112,7 @@ fun ArCameraView(
                         if (!uiState.isLoading && !showBottomSheet) {
                             previewView.bitmap?.let { bitmap ->
                                 val (base64, hash) = ImageUtils.compressAndEncodeToBase64(bitmap)
-                                // Note: In real app, these come from DataStore/Settings
-                                viewModel.onProcessFrame(base64, hash, "YOUR_TOKEN", "YOUR_FOLDER_ID")
+                                viewModel.onProcessFrame(base64, hash)
                             }
                         }
                     }
