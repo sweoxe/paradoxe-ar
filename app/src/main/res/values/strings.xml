@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">PARADOXE</string>
+    <string name="yandex_iam_token">IAM Token</string>
+    <string name="yandex_folder_id">Folder ID</string>
+    <string name="settings">Настройки</string>
+    <string name="back">Назад</string>
+    <string name="save">Сохранить</string>
+    <string name="identify_object">Распознать объект</string>
+    <string name="not_recognized">Не удалось распознать</string>
+    <string name="more_info">Подробнее в Википедии</string>
+</resources>
