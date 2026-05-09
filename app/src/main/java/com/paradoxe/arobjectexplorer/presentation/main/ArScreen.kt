@@ -8,6 +8,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -280,11 +281,22 @@ fun InfoCard(obj: DetectedArObject, onDismiss: () -> Unit, onFullDetail: () -> U
             if (obj.info != null) {
                 Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = onFullDetail, modifier = Modifier.weight(1f).height(40.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FBFF).copy(0.1f)), shape = RoundedCornerShape(8.dp), border = border(1.dp, Color(0xFF00FBFF).copy(0.4f)).border) {
+                    Button(
+                        onClick = onFullDetail,
+                        modifier = Modifier.weight(1f).height(40.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FBFF).copy(0.1f)),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Color(0xFF00FBFF).copy(0.4f))
+                    ) {
                         Text("DATA_STREAM", color = Color(0xFF00FBFF), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                     val context = LocalContext.current
-                    OutlinedButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=${obj.info.name}"))) }, modifier = Modifier.weight(1f).height(40.dp), shape = RoundedCornerShape(8.dp), border = border(1.dp, Color.White.copy(0.2f)).border) {
+                    OutlinedButton(
+                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=${obj.info.name}"))) },
+                        modifier = Modifier.weight(1f).height(40.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Color.White.copy(0.2f))
+                    ) {
                         Text("SEARCH", color = Color.White, fontSize = 10.sp)
                     }
                 }

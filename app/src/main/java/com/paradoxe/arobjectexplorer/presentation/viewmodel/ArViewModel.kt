@@ -4,6 +4,7 @@ import android.graphics.Rect
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.objects.DetectedObject
 import com.google.mlkit.vision.objects.ObjectDetector
 import com.paradoxe.arobjectexplorer.data.local.SettingsManager
 import com.paradoxe.arobjectexplorer.domain.models.ScannedObject

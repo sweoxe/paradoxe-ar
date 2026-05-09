@@ -84,13 +84,14 @@ dependencies {
     implementation(libs.androidx.camera.view)
 
     // ML Kit - Vision Objects
-    implementation(libs.mlkit.vision.objects)
+    implementation(libs.mlkit.object.detection)
 
     // Coil
     implementation(libs.coil.compose)
 
     // Preferences
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.kotlinx.coroutines.play.services)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
