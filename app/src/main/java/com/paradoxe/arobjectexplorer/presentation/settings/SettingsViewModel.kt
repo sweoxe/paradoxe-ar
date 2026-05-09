@@ -13,13 +13,12 @@ class SettingsViewModel @Inject constructor(
     private val settingsManager: SettingsManager
 ) : ViewModel() {
 
-    val iamToken = settingsManager.iamToken.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
-    val folderId = settingsManager.folderId.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+    val wikiLang = settingsManager.wikiLang.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "ru")
     val updateInterval = settingsManager.updateInterval.map { (it / 1000f) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 2.5f)
 
-    fun saveSettings(token: String, folder: String, interval: Float) {
+    fun saveSettings(lang: String, interval: Float) {
         viewModelScope.launch {
-            settingsManager.saveSettings(token, folder, interval)
+            settingsManager.saveSettings(lang, interval)
         }
     }
 }

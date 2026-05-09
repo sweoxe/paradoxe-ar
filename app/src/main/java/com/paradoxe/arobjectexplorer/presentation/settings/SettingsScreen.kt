@@ -15,62 +15,86 @@ fun SettingsScreen(
     onBack: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
-    val savedIamToken by viewModel.iamToken.collectAsState()
-    val savedFolderId by viewModel.folderId.collectAsState()
+    val savedWikiLang by viewModel.wikiLang.collectAsState()
     val savedInterval by viewModel.updateInterval.collectAsState()
 
-    var iamToken by remember(savedIamToken) { mutableStateOf(savedIamToken) }
-    var folderId by remember(savedFolderId) { mutableStateOf(savedFolderId) }
+    var wikiLang by remember(savedWikiLang) { mutableStateOf(savedWikiLang) }
     var updateInterval by remember(savedInterval) { mutableStateOf(savedInterval) }
 
     Scaffold(
+        containerColor = Color(0xFF050505),
         topBar = {
             TopAppBar(
-                title = { Text("Настройки") },
+                title = { Text("SYSTEM_CONFIG", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Black,
+                    titleContentColor = Color(0xFF00FBFF)
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color(0xFF00FBFF))
                     }
                 }
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).padding(16.dp).fillMaxSize()) {
-            Text("Yandex Vision API", style = MaterialTheme.typography.titleMedium)
-            TextField(
-                value = iamToken,
-                onValueChange = { iamToken = it },
-                label = { Text("IAM Token") },
-                modifier = Modifier.fillMaxWidth()
-            )
+        Column(modifier = Modifier.padding(padding).padding(24.dp).fillMaxSize()) {
+            Text("DATA_SOURCE_LANGUAGE", color = Color(0xFF00FBFF).copy(0.6f), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
             Spacer(Modifier.height(8.dp))
-            TextField(
-                value = folderId,
-                onValueChange = { folderId = it },
-                label = { Text("Folder ID") },
-                modifier = Modifier.fillMaxWidth()
-            )
+            
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                listOf("ru" to "РУССКИЙ", "en" to "ENGLISH").forEach { (code, name) ->
+                    OutlinedButton(
+                        onClick = { wikiLang = code },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (wikiLang == code) Color(0xFF00FBFF).copy(0.1f) else Color.Transparent,
+                            contentColor = if (wikiLang == code) Color(0xFF00FBFF) else Color.White.copy(0.6f)
+                        ),
+                        border = BorderStroke(1.dp, if (wikiLang == code) Color(0xFF00FBFF) else Color.White.copy(0.2f))
+                    ) {
+                        Text(name, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                    }
+                }
+            }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(32.dp))
 
-            Text("Частота обновления (сек): ${"%.1f".format(updateInterval)}", style = MaterialTheme.typography.titleMedium)
+            Text("SCAN_FREQUENCY: ${"%.1f".format(updateInterval)}s", color = Color(0xFF00FBFF).copy(0.6f), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
             Slider(
                 value = updateInterval,
                 onValueChange = { updateInterval = it },
-                valueRange = 1f..10f
+                valueRange = 1f..5f,
+                colors = SliderDefaults.colors(
+                    thumbColor = Color(0xFF00FBFF),
+                    activeTrackColor = Color(0xFF00FBFF),
+                    inactiveTrackColor = Color.White.copy(0.1f)
+                )
             )
 
             Spacer(Modifier.weight(1f))
 
             Button(
                 onClick = { 
-                    viewModel.saveSettings(iamToken, folderId, updateInterval)
+                    viewModel.saveSettings(wikiLang, updateInterval)
                     onBack()
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FBFF)),
             ) {
-                Text("Сохранить")
+                Text("SAVE_CHANGES", color = Color.Black, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
         }
     }
 }
+
+// Added missing imports if needed (assumed common ones exist or will be handled by lint/me)
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
+

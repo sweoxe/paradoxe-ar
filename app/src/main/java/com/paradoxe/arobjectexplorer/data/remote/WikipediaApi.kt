@@ -3,16 +3,17 @@ package com.paradoxe.arobjectexplorer.data.remote
 import com.google.gson.annotations.SerializedName
 import retrofit2.http.GET
 import retrofit2.http.Path
+import retrofit2.http.Url
 
 interface WikipediaApi {
-    @GET("api/rest_v1/page/summary/{title}")
+    @GET
     suspend fun getPageSummary(
-        @Path("title") title: String
+        @Url url: String
     ): WikipediaSummary
 
-    @GET("w/api.php?action=query&list=search&format=json&srlimit=1")
+    @GET
     suspend fun searchPage(
-        @retrofit2.http.Query("srsearch") query: String
+        @Url url: String
     ): WikipediaSearchResponse
 }
 

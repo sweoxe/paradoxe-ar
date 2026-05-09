@@ -17,18 +17,15 @@ class SettingsManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
 
-    private val IAM_TOKEN = stringPreferencesKey("iam_token")
-    private val FOLDER_ID = stringPreferencesKey("folder_id")
+    private val WIKI_LANG = stringPreferencesKey("wiki_lang")
     private val UPDATE_INTERVAL = floatPreferencesKey("update_interval")
 
-    val iamToken: Flow<String> = context.dataStore.data.map { it[IAM_TOKEN] ?: "" }
-    val folderId: Flow<String> = context.dataStore.data.map { it[FOLDER_ID] ?: "" }
+    val wikiLang: Flow<String> = context.dataStore.data.map { it[WIKI_LANG] ?: "ru" }
     val updateInterval: Flow<Long> = context.dataStore.data.map { (it[UPDATE_INTERVAL] ?: 2.5f).toLong() * 1000L }
 
-    suspend fun saveSettings(token: String, folder: String, interval: Float) {
+    suspend fun saveSettings(lang: String, interval: Float) {
         context.dataStore.edit {
-            it[IAM_TOKEN] = token
-            it[FOLDER_ID] = folder
+            it[WIKI_LANG] = lang
             it[UPDATE_INTERVAL] = interval
         }
     }

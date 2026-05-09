@@ -28,7 +28,7 @@ data class ArUiState(
     val trackedObjects: List<DetectedArObject> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
-    val lang: String = "ru",
+    val wikiLang: String = "ru",
     val imageWidth: Int = 480,
     val imageHeight: Int = 640
 )
@@ -43,6 +43,12 @@ class ArViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ArUiState())
     val uiState: StateFlow<ArUiState> = _uiState.asStateFlow()
 
+    init {
+        settingsManager.wikiLang.onEach { lang ->
+            _uiState.update { it.copy(wikiLang = lang) }
+        }.launchIn(viewModelScope)
+    }
+
     fun processImage(image: InputImage) {
         viewModelScope.launch {
             try {
@@ -50,19 +56,28 @@ class ArViewModel @Inject constructor(
                 val imgWidth = image.width
                 val imgHeight = image.height
                 
-                // Update dimensions for UI scaling
                 _uiState.update { it.copy(imageWidth = imgWidth, imageHeight = imgHeight) }
                 
-                // 1. Фильтрация объектов: игнорируем те, что слишком близко к краям (5% отступа)
-                val marginX = imgWidth * 0.05f
-                val marginY = imgHeight * 0.05f
-                val filteredResults = results.filter { mlObject ->
+                // 1. Фильтрация: только объекты ПОЛНОСТЬЮ в кадре
+                // У ML Kit boundingBox может выходить за пределы, если объект частично виден.
+                // Также добавим небольшой "безопасный" отступ (2% от краев)
+                val safePaddingX = imgWidth * 0.02f
+                val safePaddingY = imgHeight * 0.02f
+                
+                val fullyInView = results.filter { mlObject ->
                     val b = mlObject.boundingBox
-                    b.left > marginX && b.top > marginY && b.right < (imgWidth - marginX) && b.bottom < (imgHeight - marginY)
+                    b.left >= safePaddingX && 
+                    b.top >= safePaddingY && 
+                    b.right <= (imgWidth - safePaddingX) && 
+                    b.bottom <= (imgHeight - safePaddingY)
                 }
 
-                // 2. Лимит: до 3 объектов
-                val currentObjects = filteredResults.map { mlObject ->
+                // 2. Лимит: до 3 объектов (берем самые крупные по площади)
+                val top3 = fullyInView
+                    .sortedByDescending { it.boundingBox.width() * it.boundingBox.height() }
+                    .take(3)
+
+                val currentObjects = top3.map { mlObject ->
                     val id = mlObject.trackingId ?: mlObject.hashCode()
                     val existing = _uiState.value.trackedObjects.find { it.id == id }
                     
@@ -74,18 +89,17 @@ class ArViewModel @Inject constructor(
                         isLoading = existing?.isLoading ?: false,
                         lastSeen = System.currentTimeMillis()
                     )
-                }.take(3)
+                }
 
                 _uiState.update { it.copy(trackedObjects = currentObjects) }
 
-                // Автоматический запрос данных из Wikipedia для новых объектов
+                // Автоматический запрос инфо
                 currentObjects.forEach { obj ->
                     if (obj.info == null && !obj.isLoading && obj.labels.isNotEmpty()) {
                         fetchObjectInfo(obj.id, obj.labels.first())
                     }
                 }
             } catch (e: Exception) {
-                // Ошибки анализа не должны прерывать поток камеры
             }
         }
     }
@@ -93,12 +107,22 @@ class ArViewModel @Inject constructor(
     private fun fetchObjectInfo(objectId: Int, label: String) {
         viewModelScope.launch {
             updateObjectLoading(objectId, true)
-            repository.getObjectInfo(label, _uiState.value.lang)
+            // Пытаемся получить на выбранном языке, если не выйдет - можно добавить fallback
+            repository.getObjectInfo(label, _uiState.value.wikiLang)
                 .onSuccess { info ->
                     updateObjectInfo(objectId, info)
                 }
                 .onFailure {
-                    updateObjectLoading(objectId, false)
+                    // Fallback to English if current is not English
+                    if (_uiState.value.wikiLang != "en") {
+                        repository.getObjectInfo(label, "en").onSuccess { enInfo ->
+                            updateObjectInfo(objectId, enInfo)
+                        }.onFailure {
+                            updateObjectLoading(objectId, false)
+                        }
+                    } else {
+                        updateObjectLoading(objectId, false)
+                    }
                 }
         }
     }

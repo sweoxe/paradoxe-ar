@@ -28,7 +28,7 @@ object AppModule {
     @Singleton
     fun provideWikipediaApi(): WikipediaApi {
         return Retrofit.Builder()
-            .baseUrl("https://ru.wikipedia.org/")
+            .baseUrl("https://wikipedia.org/")
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(WikipediaApi::class.java)

@@ -29,13 +29,17 @@ class ObjectRepositoryImpl @Inject constructor(
         }
 
         return try {
+            val baseUrl = "https://$lang.wikipedia.org/"
+            
             // 2. Search Wikipedia title
-            val searchResponse = wikipediaApi.searchPage(label)
+            val searchUrl = "${baseUrl}w/api.php?action=query&list=search&format=json&srlimit=1&srsearch=$label"
+            val searchResponse = wikipediaApi.searchPage(searchUrl)
             val pageTitle = searchResponse.query.search.firstOrNull()?.title 
                 ?: return Result.failure(Exception("Not found on Wikipedia"))
 
             // 3. Get Wikipedia Summary
-            val wikiSummary = wikipediaApi.getPageSummary(pageTitle)
+            val summaryUrl = "${baseUrl}api/rest_v1/page/summary/$pageTitle"
+            val wikiSummary = wikipediaApi.getPageSummary(summaryUrl)
 
             val scannedObject = ScannedObject(
                 id = label, // Use label as ID/Hash for cache

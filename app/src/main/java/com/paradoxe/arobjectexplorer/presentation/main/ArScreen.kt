@@ -233,38 +233,127 @@ fun LensVignette() {
 }
 
 @Composable
-fun ArHolographicOverlay(trackedObjects: List<DetectedArObject>, imageWidth: Int, imageHeight: Int, onObjectClick: (DetectedArObject) -> Unit, onInfoClick: (DetectedArObject) -> Unit) {
+fun ArHolographicOverlay(
+    trackedObjects: List<DetectedArObject>,
+    imageWidth: Int,
+    imageHeight: Int,
+    onObjectClick: (DetectedArObject) -> Unit,
+    onInfoClick: (DetectedArObject) -> Unit
+) {
     val density = LocalDensity.current
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulse by infiniteTransition.animateFloat(
+        initialValue = 0.6f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1500), RepeatMode.Reverse), label = "p"
+    )
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val scaleX = constraints.maxWidth.toFloat() / imageWidth
         val scaleY = constraints.maxHeight.toFloat() / imageHeight
+        
         Canvas(modifier = Modifier.fillMaxSize()) {
             trackedObjects.forEach { obj ->
                 val r = obj.boundingBox
-                drawHolographicFrame(r.left * scaleX, r.top * scaleY, r.width() * scaleX, r.height() * scaleY, Color(0xFF00FBFF), obj.info?.name ?: obj.labels.firstOrNull() ?: "ID...", obj.isLoading)
+                val color = Color(0xFF00FBFF)
+                
+                // Draw glow behind frame
+                drawRect(
+                    brush = Brush.radialGradient(
+                        colors = listOf(color.copy(0.15f * pulse), Color.Transparent),
+                        center = Offset(r.centerX() * scaleX, r.centerY() * scaleY),
+                        radius = (r.width() * scaleX).coerceAtLeast(r.height() * scaleY)
+                    ),
+                    topLeft = Offset(r.left * scaleX - 20f, r.top * scaleY - 20f),
+                    size = Size(r.width() * scaleX + 40f, r.height() * scaleY + 40f)
+                )
+
+                drawHolographicFrame(
+                    left = r.left * scaleX,
+                    top = r.top * scaleY,
+                    width = r.width() * scaleX,
+                    height = r.height() * scaleY,
+                    color = color,
+                    label = obj.info?.name ?: obj.labels.firstOrNull() ?: "SCANNING...",
+                    isLoading = obj.isLoading,
+                    pulse = pulse
+                )
             }
         }
         trackedObjects.forEach { obj ->
             val r = obj.boundingBox
-            Box(modifier = Modifier.offset((r.left * scaleX / density.density).dp, (r.top * scaleY / density.density).dp).size((r.width() * scaleX / density.density).dp, (r.height() * scaleY / density.density).dp).clickable { onObjectClick(obj) })
+            Box(
+                modifier = Modifier
+                    .offset(
+                        (r.left * scaleX / density.density).dp,
+                        (r.top * scaleY / density.density).dp
+                    )
+                    .size(
+                        (r.width() * scaleX / density.density).dp,
+                        (r.height() * scaleY / density.density).dp
+                    )
+                    .clickable { onObjectClick(obj) }
+            )
         }
     }
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawHolographicFrame(left: Float, top: Float, width: Float, height: Float, color: Color, label: String, isLoading: Boolean) {
-    val t = 2.dp.toPx(); val cl = 20.dp.toPx(); val c = if (isLoading) color.copy(0.4f) else color
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawHolographicFrame(
+    left: Float,
+    top: Float,
+    width: Float,
+    height: Float,
+    color: Color,
+    label: String,
+    isLoading: Boolean,
+    pulse: Float
+) {
+    val strokeWidth = 1.5.dp.toPx()
+    val cornerLen = 24.dp.toPx()
+    val activeColor = if (isLoading) color.copy(0.3f) else color.copy(pulse)
+    
+    // 1. Draw solid corners
     val path = Path().apply {
-        moveTo(left, top + cl); lineTo(left, top); lineTo(left + cl, top)
-        moveTo(left + width - cl, top); lineTo(left + width, top); lineTo(left + width, top + cl)
-        moveTo(left + width, top + height - cl); lineTo(left + width, top + height); lineTo(left + width - cl, top + height)
-        moveTo(left + cl, top + height); lineTo(left, top + height); lineTo(left, top + height - cl)
+        // TL
+        moveTo(left, top + cornerLen); lineTo(left, top); lineTo(left + cornerLen, top)
+        // TR
+        moveTo(left + width - cornerLen, top); lineTo(left + width, top); lineTo(left + width, top + cornerLen)
+        // BR
+        moveTo(left + width, top + height - cornerLen); lineTo(left + width, top + height); lineTo(left + width - cornerLen, top + height)
+        // BL
+        moveTo(left + cornerLen, top + height); lineTo(left, top + height); lineTo(left, top + height - cornerLen)
     }
-    drawPath(path, c, style = Stroke(t))
-    drawRect(c.copy(0.05f), Offset(left, top), Size(width, height))
-    val p = android.graphics.Paint().apply { this.color = c.toArgb(); textSize = 32f; typeface = android.graphics.Typeface.MONOSPACE; isFakeBoldText = true }
-    val tw = p.measureText(label.uppercase())
-    drawRect(Color.Black.copy(0.7f), Offset(left, top - 45f), Size(tw + 20f, 40f))
-    drawContext.canvas.nativeCanvas.drawText(label.uppercase(), left + 10f, top - 15f, p)
+    drawPath(path, activeColor, style = Stroke(strokeWidth))
+    
+    // 2. Draw thin connections
+    drawRect(activeColor.copy(0.1f), Offset(left, top), Size(width, height), style = Stroke(0.5.dp.toPx()))
+    
+    // 3. Draw scanning fill
+    drawRect(activeColor.copy(0.03f), Offset(left, top), Size(width, height))
+    
+    // 4. Label tab
+    val paint = android.graphics.Paint().apply {
+        this.color = Color.Black.copy(0.8f).toArgb()
+        isAntiAlias = true
+    }
+    val textPaint = android.graphics.Paint().apply {
+        this.color = activeColor.toArgb()
+        textSize = 28f
+        typeface = android.graphics.Typeface.create(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD)
+        isFakeBoldText = true
+    }
+    
+    val upperLabel = label.uppercase()
+    val textWidth = textPaint.measureText(upperLabel)
+    val tabHeight = 36f
+    val tabWidth = textWidth + 30f
+    
+    // Draw tab background
+    drawContext.canvas.nativeCanvas.drawRect(left, top - tabHeight - 4f, left + tabWidth, top - 4f, paint)
+    // Draw tab accent line
+    drawLine(activeColor, Offset(left, top - 4f), Offset(left + tabWidth, top - 4f), 2f)
+    
+    // Draw label
+    drawContext.canvas.nativeCanvas.drawText(upperLabel, left + 15f, top - 15f, textPaint)
 }
 
 @Composable
