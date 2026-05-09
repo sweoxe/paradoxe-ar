@@ -176,10 +176,13 @@ fun HiltHudDisplay() {
         HudCorner(Alignment.BottomStart)
         HudCorner(Alignment.BottomEnd)
         
-        Column(modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 100.dp)) {
-            Text("CORE_LINK: STABLE", color = Color(0xFF00FBFF).copy(alpha), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
-            Text("LATENCY: ${Random.nextInt(12, 18)}MS", color = Color(0xFF00FBFF).copy(alpha * 0.7f), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
-            Text("TRACKING: ACTIVE [MAX:03]", color = Color(0xFF00FBFF).copy(alpha), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
+        Box(modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 100.dp)) {
+            Column {
+                Text("SYSLINK_RECON: [OK]", color = Color(0xFF00FBFF).copy(alpha), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
+                Text("NEURAL_LATENCY: ${Random.nextInt(12, 18)}MS", color = Color(0xFF00FBFF).copy(alpha * 0.7f), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
+                Text("TRACKER_UNITS: ACTIVE [03]", color = Color(0xFF00FBFF).copy(alpha), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
+                Text("WIKI_LANG: ${uiState.wikiLang.uppercase()}", color = Color(0xFF00FBFF).copy(alpha * 0.5f), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
+            }
         }
 
         Box(modifier = Modifier.align(Alignment.Center).size(40.dp)) {
