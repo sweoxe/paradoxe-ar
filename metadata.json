@@ -1,6 +1,6 @@
 {
   "name": "PARADOXE",
-  "description": "AR Object Explorer using Yandex Visual Search and Wikipedia API.",
+  "description": "AR Object Explorer ecosystem 'Second Sight' - Futurist immersive interface with on-device ML Kit and Wikipedia integration.",
   "requestFramePermissions": ["camera"],
   "majorCapabilities": ["AR"]
 }

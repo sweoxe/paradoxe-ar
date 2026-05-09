@@ -137,7 +137,7 @@ fun ArCameraView(
 
         ScanLinesOverlay()
         LensVignette()
-        HiltHudDisplay()
+        HiltHudDisplay(uiState.wikiLang)
 
         IconButton(
             onClick = onNavigateToSettings,
@@ -163,7 +163,7 @@ fun ArCameraView(
 }
 
 @Composable
-fun HiltHudDisplay() {
+fun HiltHudDisplay(wikiLang: String) {
     val infiniteTransition = rememberInfiniteTransition(label = "hud")
     val alpha by infiniteTransition.animateFloat(
         initialValue = 0.4f, targetValue = 0.8f,
@@ -181,7 +181,7 @@ fun HiltHudDisplay() {
                 Text("SYSLINK_RECON: [OK]", color = Color(0xFF00FBFF).copy(alpha), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
                 Text("NEURAL_LATENCY: ${Random.nextInt(12, 18)}MS", color = Color(0xFF00FBFF).copy(alpha * 0.7f), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
                 Text("TRACKER_UNITS: ACTIVE [03]", color = Color(0xFF00FBFF).copy(alpha), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
-                Text("WIKI_LANG: ${uiState.wikiLang.uppercase()}", color = Color(0xFF00FBFF).copy(alpha * 0.5f), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
+                Text("WIKI_LANG: ${wikiLang.uppercase()}", color = Color(0xFF00FBFF).copy(alpha * 0.5f), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
             }
         }
 
