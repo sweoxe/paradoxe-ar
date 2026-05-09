@@ -41,6 +41,7 @@ object AppModule {
             .setDetectorMode(ObjectDetectorOptions.STREAM_MODE)
             .enableMultipleObjects()
             .enableClassification()
+            .enableObjectTracking()
             .build()
         return ObjectDetection.getClient(options)
     }

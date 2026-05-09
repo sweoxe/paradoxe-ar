@@ -101,6 +101,8 @@ fun ArCameraView(
 
     LaunchedEffect(Unit) {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+        val analysisExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+        
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
             val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
@@ -108,13 +110,17 @@ fun ArCameraView(
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
                 .build().also {
-                    it.setAnalyzer(ContextCompat.getMainExecutor(context)) { imageProxy ->
+                    it.setAnalyzer(analysisExecutor) { imageProxy ->
                         val mediaImage = imageProxy.image
                         if (mediaImage != null) {
-                            val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-                            viewModel.processImage(image)
+                            val rotation = imageProxy.imageInfo.rotationDegrees
+                            val image = InputImage.fromMediaImage(mediaImage, rotation)
+                            viewModel.processImage(image) {
+                                imageProxy.close()
+                            }
+                        } else {
+                            imageProxy.close()
                         }
-                        imageProxy.close()
                     }
                 }
             try {
@@ -251,30 +257,44 @@ fun ArHolographicOverlay(
     )
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val scaleX = constraints.maxWidth.toFloat() / imageWidth
-        val scaleY = constraints.maxHeight.toFloat() / imageHeight
+        val viewWidth = constraints.maxWidth.toFloat()
+        val viewHeight = constraints.maxHeight.toFloat()
+        
+        // ML Kit results are in imageWidth x imageHeight space (after rotation)
+        // PreviewView is FILL_CENTER, so we need to calculate the actual scale and offsets
+        val scale = if (imageWidth > 0 && imageHeight > 0) {
+            maxOf(viewWidth / imageWidth, viewHeight / imageHeight)
+        } else 1f
+        
+        val offsetX = (viewWidth - imageWidth * scale) / 2
+        val offsetY = (viewHeight - imageHeight * scale) / 2
         
         Canvas(modifier = Modifier.fillMaxSize()) {
             trackedObjects.forEach { obj ->
                 val r = obj.boundingBox
                 val color = Color(0xFF00FBFF)
                 
+                val left = r.left * scale + offsetX
+                val top = r.top * scale + offsetY
+                val width = r.width() * scale
+                val height = r.height() * scale
+                
                 // Draw glow behind frame
                 drawRect(
                     brush = Brush.radialGradient(
                         colors = listOf(color.copy(0.15f * pulse), Color.Transparent),
-                        center = Offset(r.centerX() * scaleX, r.centerY() * scaleY),
-                        radius = (r.width() * scaleX).coerceAtLeast(r.height() * scaleY)
+                        center = Offset(left + width / 2, top + height / 2),
+                        radius = width.coerceAtLeast(height)
                     ),
-                    topLeft = Offset(r.left * scaleX - 20f, r.top * scaleY - 20f),
-                    size = Size(r.width() * scaleX + 40f, r.height() * scaleY + 40f)
+                    topLeft = Offset(left - 20f, top - 20f),
+                    size = Size(width + 40f, height + 40f)
                 )
 
                 drawHolographicFrame(
-                    left = r.left * scaleX,
-                    top = r.top * scaleY,
-                    width = r.width() * scaleX,
-                    height = r.height() * scaleY,
+                    left = left,
+                    top = top,
+                    width = width,
+                    height = height,
                     color = color,
                     label = obj.info?.name ?: obj.labels.firstOrNull() ?: "SCANNING...",
                     isLoading = obj.isLoading,
@@ -284,16 +304,15 @@ fun ArHolographicOverlay(
         }
         trackedObjects.forEach { obj ->
             val r = obj.boundingBox
+            val left = (r.left * scale + offsetX) / density.density
+            val top = (r.top * scale + offsetY) / density.density
+            val width = (r.width() * scale) / density.density
+            val height = (r.height() * scale) / density.density
+            
             Box(
                 modifier = Modifier
-                    .offset(
-                        (r.left * scaleX / density.density).dp,
-                        (r.top * scaleY / density.density).dp
-                    )
-                    .size(
-                        (r.width() * scaleX / density.density).dp,
-                        (r.height() * scaleY / density.density).dp
-                    )
+                    .offset(left.dp, top.dp)
+                    .size(width.dp, height.dp)
                     .clickable { onObjectClick(obj) }
             )
         }

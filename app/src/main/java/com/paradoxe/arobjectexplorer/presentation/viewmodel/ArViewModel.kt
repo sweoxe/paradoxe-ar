@@ -49,33 +49,28 @@ class ArViewModel @Inject constructor(
         }.launchIn(viewModelScope)
     }
 
-    fun processImage(image: InputImage) {
+    fun processImage(image: InputImage, onComplete: () -> Unit = {}) {
         viewModelScope.launch {
             try {
                 val results = detector.process(image).await()
+                onComplete() // Close early if possible, but after await
+                
                 val imgWidth = image.width
                 val imgHeight = image.height
                 
                 _uiState.update { it.copy(imageWidth = imgWidth, imageHeight = imgHeight) }
                 
-                // 1. Фильтрация: только объекты ПОЛНОСТЬЮ в кадре
-                // У ML Kit boundingBox может выходить за пределы, если объект частично виден.
-                // Также добавим небольшой "безопасный" отступ (2% от краев)
-                val safePaddingX = imgWidth * 0.02f
-                val safePaddingY = imgHeight * 0.02f
+                // 1. Filter: Up to 3 objects, preferring those already tracked
+                val currentTrackedIds = _uiState.value.trackedObjects.map { it.id }.toSet()
                 
-                val fullyInView = results.filter { mlObject ->
-                    val b = mlObject.boundingBox
-                    b.left >= safePaddingX && 
-                    b.top >= safePaddingY && 
-                    b.right <= (imgWidth - safePaddingX) && 
-                    b.bottom <= (imgHeight - safePaddingY)
-                }
+                // Sort results: existing objects first, then by size
+                val sortedResults = results.sortedWith(compareByDescending<DetectedObject> { 
+                    currentTrackedIds.contains(it.trackingId ?: -1) 
+                }.thenByDescending { 
+                    it.boundingBox.width() * it.boundingBox.height() 
+                })
 
-                // 2. Лимит: до 3 объектов (берем самые крупные по площади)
-                val top3 = fullyInView
-                    .sortedByDescending { it.boundingBox.width() * it.boundingBox.height() }
-                    .take(3)
+                val top3 = sortedResults.take(3)
 
                 val currentObjects = top3.map { mlObject ->
                     val id = mlObject.trackingId ?: mlObject.hashCode()
@@ -93,13 +88,15 @@ class ArViewModel @Inject constructor(
 
                 _uiState.update { it.copy(trackedObjects = currentObjects) }
 
-                // Автоматический запрос инфо
+                // Automatic info fetch
                 currentObjects.forEach { obj ->
                     if (obj.info == null && !obj.isLoading && obj.labels.isNotEmpty()) {
                         fetchObjectInfo(obj.id, obj.labels.first())
                     }
                 }
             } catch (e: Exception) {
+                onComplete()
+                // Analysis errors should not stop the flow
             }
         }
     }
