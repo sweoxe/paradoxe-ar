@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.paradoxe.arobjectexplorer.data.local.ParadoxeDatabase
 import com.paradoxe.arobjectexplorer.data.local.SearchResultDao
+import com.paradoxe.arobjectexplorer.data.local.SettingsManager
 import com.paradoxe.arobjectexplorer.data.remote.WikipediaApi
 import com.paradoxe.arobjectexplorer.data.remote.YandexSearchApi
 import com.paradoxe.arobjectexplorer.data.repository.ObjectRepositoryImpl
