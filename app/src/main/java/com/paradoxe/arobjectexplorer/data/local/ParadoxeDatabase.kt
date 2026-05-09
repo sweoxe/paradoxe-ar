@@ -25,7 +25,7 @@ interface SearchResultDao {
     suspend fun clearOldResults(expiryTime: Long)
 }
 
-@Database(entities = [SearchResultEntity::class], version = 1)
+@Database(entities = [SearchResultEntity::class], version = 1, exportSchema = false)
 abstract class ParadoxeDatabase : RoomDatabase() {
     abstract fun searchResultDao(): SearchResultDao
 }

@@ -16,12 +16,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.paradoxe.arobjectexplorer.presentation.viewmodel.ArViewModel
@@ -31,7 +33,7 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun ArScreenContent(
     viewModel: ArViewModel = hiltViewModel(),
@@ -44,9 +46,21 @@ fun ArScreenContent(
     if (permissionState.allPermissionsGranted) {
         ArCameraView(viewModel, onNavigateToSettings)
     } else {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Button(onClick = { permissionState.launchMultiplePermissionRequest() }) {
-                Text("Запросить разрешения")
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "Для работы дополненной реальности требуется доступ к камере",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(16.dp)
+                )
+                Button(onClick = { permissionState.launchMultiplePermissionRequest() }) {
+                    Text("Предоставить доступ")
+                }
             }
         }
     }
@@ -65,7 +79,11 @@ fun ArCameraView(
     var showBottomSheet by remember { mutableStateOf(false) }
 
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
-    val previewView = remember { PreviewView(context) }
+    val previewView = remember {
+        PreviewView(context).apply {
+            scaleType = PreviewView.ScaleType.FILL_CENTER
+        }
+    }
 
     LaunchedEffect(Unit) {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
@@ -91,10 +109,10 @@ fun ArCameraView(
                 scope.launch {
                     while (true) {
                         delay(uiState.updateInterval)
-                        if (!uiState.isLoading) {
+                        if (!uiState.isLoading && !showBottomSheet) {
                             previewView.bitmap?.let { bitmap ->
                                 val (base64, hash) = ImageUtils.compressAndEncodeToBase64(bitmap)
-                                // Note: IAM token and Folder ID should be fetched from DataStore
+                                // Note: In real app, these come from DataStore/Settings
                                 viewModel.onProcessFrame(base64, hash, "YOUR_TOKEN", "YOUR_FOLDER_ID")
                             }
                         }
@@ -110,10 +128,14 @@ fun ArCameraView(
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
 
-        // UI Overlays
+        // UI Overlays with WindowInsets for tall screens
         IconButton(
             onClick = onNavigateToSettings,
-            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).background(Color.Black.copy(0.3f), RoundedCornerShape(8.dp))
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(16.dp)
+                .background(Color.Black.copy(0.3f), RoundedCornerShape(12.dp))
         ) {
             Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
         }
@@ -123,32 +145,74 @@ fun ArCameraView(
             Box(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .offset(y = (-100).dp)
-                    .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(16.dp))
+                    .offset(y = (-80).dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f), RoundedCornerShape(24.dp))
                     .clickable { showBottomSheet = true }
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(horizontal = 24.dp, vertical = 12.dp)
             ) {
-                Text(obj.name, style = MaterialTheme.typography.titleMedium)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(obj.name, style = MaterialTheme.typography.titleLarge)
+                    Text("Нажмите, чтобы узнать больше", style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
 
         if (uiState.isLoading) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.BottomCenter).padding(32.dp))
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .windowInsetsPadding(WindowInsets.statusBars)
+            )
         }
 
         if (showBottomSheet && uiState.detectedObject != null) {
             ModalBottomSheet(
-                onDismissRequest = { showBottomSheet = false }
+                onDismissRequest = { showBottomSheet = false },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                windowInsets = WindowInsets.navigationBars
             ) {
-                Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
-                    Text(uiState.detectedObject!!.name, style = MaterialTheme.typography.headlineMedium)
-                    Spacer(Modifier.height(8.dp))
-                    Text(uiState.detectedObject!!.description)
-                    Spacer(Modifier.height(16.dp))
-                    Button(onClick = { /* Open WebView */ }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Подробнее в Википедии")
+                Column(
+                    modifier = Modifier
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 32.dp)
+                        .fillMaxWidth()
+                ) {
+                    Text(
+                        uiState.detectedObject!!.name,
+                        style = MaterialTheme.typography.headlineLarge,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    
+                    uiState.detectedObject!!.thumbnailUrl?.let { url ->
+                        AsyncImage(
+                            model = url,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .background(Color.LightGray, RoundedCornerShape(16.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(Modifier.height(16.dp))
                     }
-                    Spacer(Modifier.height(32.dp))
+
+                    Text(
+                        uiState.detectedObject!!.description,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    
+                    Spacer(Modifier.height(24.dp))
+                    
+                    Button(
+                        onClick = { /* Open Wiki URL */ },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("Подробнее в Википедии", style = MaterialTheme.typography.titleMedium)
+                    }
                 }
             }
         }
