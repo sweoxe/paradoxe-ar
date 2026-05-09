@@ -269,6 +269,17 @@ fun LensVignette() {
 
 @Composable
 fun HiltHudDisplay() {
+    val infiniteTransition = rememberInfiniteTransition(label = "hud")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "hud_alpha"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -282,13 +293,41 @@ fun HiltHudDisplay() {
         HudCorner(Alignment.BottomEnd)
         
         // Side text
-        Text(
-            "CORE_LINK: STABLE\nLATENCY: 14MS\nOBJECT_TRACKING: ACTIVE",
-            color = Color(0xFF00FBFF).copy(0.6f),
-            style = MaterialTheme.typography.labelSmall,
-            fontFamily = FontFamily.Monospace,
-            modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 100.dp)
-        )
+        Column(modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 100.dp)) {
+            Text(
+                "CORE_LINK: STABLE",
+                color = Color(0xFF00FBFF).copy(alpha),
+                style = MaterialTheme.typography.labelSmall,
+                fontFamily = FontFamily.Monospace
+            )
+            Text(
+                "LATENCY: ${kotlin.random.Random.nextInt(12, 18)}MS",
+                color = Color(0xFF00FBFF).copy(alpha * 0.7f),
+                style = MaterialTheme.typography.labelSmall,
+                fontFamily = FontFamily.Monospace
+            )
+            Text(
+                "OBJECT_TRACKING: ACTIVE [03_MAX]",
+                color = Color(0xFF00FBFF).copy(alpha),
+                style = MaterialTheme.typography.labelSmall,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+
+        // Center Crosshair
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .size(40.dp)
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val color = Color(0xFF00FBFF).copy(0.2f)
+                drawLine(color, Offset(size.width/2, 0f), Offset(size.width/2, 10f), 1.dp.toPx())
+                drawLine(color, Offset(size.width/2, size.height), Offset(size.width/2, size.height - 10f), 1.dp.toPx())
+                drawLine(color, Offset(0f, size.height/2), Offset(10f, size.height/2), 1.dp.toPx())
+                drawLine(color, Offset(size.width, size.height/2), Offset(size.width - 10f, size.height/2), 1.dp.toPx())
+            }
+        }
     }
 }
 
@@ -501,15 +540,31 @@ fun InfoCard(
             )
 
             if (obj.info != null) {
-                Spacer(Modifier.height(20.dp))
-                Button(
-                    onClick = onFullDetail,
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                    shape = RoundedCornerShape(12.dp),
-                    border = border(width = 1.dp, color = Color(0xFF00FBFF).copy(0.6f)).border
-                ) {
-                    Text("OPEN FULL DATA STREAM", color = Color(0xFF00FBFF), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(16.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(
+                        onClick = onFullDetail,
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FBFF).copy(0.1f)),
+                        shape = RoundedCornerShape(8.dp),
+                        border = border(width = 1.dp, color = Color(0xFF00FBFF).copy(0.4f)).border
+                    ) {
+                        Text("DATA_STREAM", color = Color(0xFF00FBFF), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                    
+                    val context = LocalContext.current
+                    OutlinedButton(
+                        onClick = { 
+                            val query = obj.info.name
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://www.google.com/search?q=$query"))
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        border = border(width = 1.dp, color = Color.White.copy(0.2f)).border
+                    ) {
+                        Text("WEB_SEARCH", color = Color.White, fontSize = 10.sp)
+                    }
                 }
             }
         }
