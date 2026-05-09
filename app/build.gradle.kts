@@ -84,7 +84,7 @@ dependencies {
     implementation(libs.androidx.camera.view)
 
     // ML Kit
-    implementation(libs.mlkit.object.detection)
+    implementation(libs.google.mlkit.object.detection)
 
     // Coil
     implementation(libs.coil.compose)

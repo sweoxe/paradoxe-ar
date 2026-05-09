@@ -19,7 +19,7 @@ coil = "2.7.0"
 ksp = "2.0.0-1.0.21"
 datastore = "1.1.1"
 accompanist = "0.34.0"
-mlkit-object-detection = "17.0.2"
+mlkit = "17.0.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -62,7 +62,7 @@ androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycl
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
 
 # ML Kit
-mlkit-object-detection = { group = "com.google.mlkit", name = "object-detection", version.ref = "mlkit-object-detection" }
+google-mlkit-object-detection = { group = "com.google.mlkit", name = "object-detection", version.ref = "mlkit" }
 
 # Coil
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }

@@ -6,6 +6,7 @@ import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,11 +26,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.ContentScale
@@ -66,7 +66,7 @@ fun ArScreenContent(
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color(0xFF050505) // Deep dark background
+        color = Color(0xFF010101) // Ultra dark background
     ) {
         if (permissionState.allPermissionsGranted) {
             ArCameraView(viewModel, onNavigateToSettings)
@@ -79,17 +79,19 @@ fun ArScreenContent(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        "ДЛЯ РАБОТЫ ТРЕБУЕТСЯ ДОСТУП К КАМЕРЕ",
-                        color = Color(0xFF00FBFF),
+                        "SYSTEM ERROR: CAMERA ACCESS DENIED",
+                        color = Color(0xFFFF0066),
                         fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.labelSmall
+                        style = MaterialTheme.typography.labelSmall,
+                        fontFamily = FontFamily.Monospace
                     )
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(24.dp))
                     Button(
                         onClick = { permissionState.launchMultiplePermissionRequest() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FBFF))
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FBFF)),
+                        shape = RoundedCornerShape(2.dp)
                     ) {
-                        Text("ПРЕДОСТАВИТЬ", color = Color.Black)
+                        Text("INITIALIZE ACCESS", color = Color.Black, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -167,6 +169,12 @@ fun ArCameraView(
 
         // Futuristic Scan-lines effect
         ScanLinesOverlay()
+        
+        // Lens Vignette
+        LensVignette()
+
+        // HUD Elements
+        HiltHudDisplay()
 
         // Settings Button
         IconButton(
@@ -174,9 +182,9 @@ fun ArCameraView(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(16.dp)
-                .background(Color.Black.copy(0.6f), CircleShape)
-                .border(1.dp, Color(0xFF00FBFF).copy(0.5f), CircleShape)
+                .padding(20.dp)
+                .background(Color.Black.copy(0.7f), CircleShape)
+                .border(1.dp, Color(0xFF00FBFF).copy(0.4f), CircleShape)
         ) {
             Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color(0xFF00FBFF))
         }
@@ -209,16 +217,108 @@ fun ArCameraView(
 
 @Composable
 fun ScanLinesOverlay() {
+    val infiniteTransition = rememberInfiniteTransition(label = "scanline")
+    val scanOffset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "scanline_anim"
+    )
+
     Canvas(modifier = Modifier.fillMaxSize()) {
         val strokeWidth = 1.dp.toPx()
-        val spacing = 4.dp.toPx()
+        val spacing = 6.dp.toPx()
         for (y in 0 until size.height.toInt() step spacing.toInt()) {
             drawLine(
-                color = Color.White.copy(alpha = 0.03f),
+                color = Color(0xFF00FBFF).copy(alpha = 0.05f),
                 start = Offset(0f, y.toFloat()),
                 end = Offset(size.width, y.toFloat()),
                 strokeWidth = strokeWidth
             )
+        }
+        
+        // Moving scan line
+        val scanY = scanOffset * size.height
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color.Transparent, Color(0xFF00FBFF).copy(0.1f), Color.Transparent),
+                startY = scanY - 50f,
+                endY = scanY + 50f
+            ),
+            topLeft = Offset(0f, scanY - 50f),
+            size = Size(size.width, 100f)
+        )
+    }
+}
+
+@Composable
+fun LensVignette() {
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        drawRect(
+            brush = Brush.radialGradient(
+                colors = listOf(Color.Transparent, Color.Black.copy(0.6f)),
+                center = center,
+                radius = size.maxDimension / 1.5f
+            )
+        )
+    }
+}
+
+@Composable
+fun HiltHudDisplay() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .padding(20.dp)
+    ) {
+        // Corners HUD
+        HudCorner(Alignment.TopStart)
+        HudCorner(Alignment.TopEnd)
+        HudCorner(Alignment.BottomStart)
+        HudCorner(Alignment.BottomEnd)
+        
+        // Side text
+        Text(
+            "CORE_LINK: STABLE\nLATENCY: 14MS\nOBJECT_TRACKING: ACTIVE",
+            color = Color(0xFF00FBFF).copy(0.6f),
+            style = MaterialTheme.typography.labelSmall,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 100.dp)
+        )
+    }
+}
+
+@Composable
+fun HudCorner(alignment: Alignment) {
+    Box(modifier = Modifier.size(30.dp), contentAlignment = alignment) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val s = size.width
+            val color = Color(0xFF00FBFF).copy(0.4f)
+            val thickness = 2.dp.toPx()
+            val len = 10.dp.toPx()
+            
+            when(alignment) {
+                Alignment.TopStart -> {
+                    drawLine(color, Offset(0f, 0f), Offset(len, 0f), thickness)
+                    drawLine(color, Offset(0f, 0f), Offset(0f, len), thickness)
+                }
+                Alignment.TopEnd -> {
+                    drawLine(color, Offset(s, 0f), Offset(s - len, 0f), thickness)
+                    drawLine(color, Offset(s, 0f), Offset(s, len), thickness)
+                }
+                Alignment.BottomStart -> {
+                    drawLine(color, Offset(0f, s), Offset(len, s), thickness)
+                    drawLine(color, Offset(0f, s), Offset(0f, s - len), thickness)
+                }
+                Alignment.BottomEnd -> {
+                    drawLine(color, Offset(s, s), Offset(s - len, s), thickness)
+                    drawLine(color, Offset(s, s), Offset(s, s - len), thickness)
+                }
+            }
         }
     }
 }
@@ -237,8 +337,7 @@ fun ArHolographicOverlay(
         val screenWidth = constraints.maxWidth.toFloat()
         val screenHeight = constraints.maxHeight.toFloat()
 
-        // ML Kit results are in image coordinates. 
-        // We need to scale them to screen coordinates.
+        // Scaling logic (ML Kit input size to screen size)
         val scaleX = screenWidth / imageWidth
         val scaleY = screenHeight / imageHeight
 
@@ -253,19 +352,19 @@ fun ArHolographicOverlay(
                 val width = right - left
                 val height = bottom - top
 
-                // Holographic Box
-                drawHolographicBox(
+                drawHolographicFrame(
                     left = left,
                     top = top,
                     width = width,
                     height = height,
                     color = Color(0xFF00FBFF),
-                    label = obj.info?.name ?: obj.labels.firstOrNull() ?: "SCANNING..."
+                    label = obj.info?.name ?: obj.labels.firstOrNull() ?: "IDENTIFYING...",
+                    isLoading = obj.isLoading
                 )
             }
         }
 
-        // Touch targets Overlay
+        // Interaction layers
         trackedObjects.forEach { obj ->
             val rect = obj.boundingBox
             val left = (rect.left * scaleX) / density.density
@@ -278,99 +377,89 @@ fun ArHolographicOverlay(
                     .offset(x = left.dp, y = top.dp)
                     .size(width.dp, height.dp)
                     .clickable { onObjectClick(obj) }
-            ) {
-                if (obj.info != null) {
-                    IconButton(
-                        onClick = { onInfoClick(obj) },
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(4.dp)
-                            .size(24.dp)
-                            .background(Color(0xFF00FBFF).copy(0.2f), CircleShape)
-                            .border(1.dp, Color(0xFF00FBFF), CircleShape)
-                    ) {
-                        Icon(Icons.Default.Info, null, tint = Color(0xFF00FBFF), modifier = Modifier.size(14.dp))
-                    }
-                }
-            }
+            )
         }
     }
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawHolographicBox(
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawHolographicFrame(
     left: Float,
     top: Float,
     width: Float,
     height: Float,
     color: Color,
-    label: String
+    label: String,
+    isLoading: Boolean
 ) {
-    val glowColor = color.copy(alpha = 0.3f)
     val strokeWidth = 2.dp.toPx()
-    val cornerLen = 20.dp.toPx()
-
-    // Corners
-    val path = Path().apply {
-        // Top Left
-        moveTo(left, top + cornerLen)
-        lineTo(left, top)
-        lineTo(left + cornerLen, top)
-        
-        // Top Right
-        moveTo(left + width - cornerLen, top)
-        lineTo(left + width, top)
-        lineTo(left + width, top + cornerLen)
-
-        // Bottom Right
-        moveTo(left + width, top + height - cornerLen)
-        lineTo(left + width, top + height)
-        lineTo(left + width - cornerLen, top + height)
-
-        // Bottom Left
-        moveTo(left + cornerLen, top + height)
-        lineTo(left, top + height)
-        lineTo(left, top + height - cornerLen)
-    }
-
-    drawPath(path, color, style = Stroke(strokeWidth))
+    val cornerLen = 24.dp.toPx()
+    val mainColor = if (isLoading) color.copy(0.4f) else color
     
-    // Fill background semi-transparent
+    // Outer highlight box
     drawRect(
-        color = color.copy(alpha = 0.05f),
+        color = mainColor.copy(0.05f),
         topLeft = Offset(left, top),
         size = Size(width, height)
     )
 
-    // Suble glow
-    drawRect(
-        brush = Brush.radialGradient(
-            colors = listOf(color.copy(0.1f), Color.Transparent),
-            center = Offset(left + width/2, top + height/2),
-            radius = width
-        ),
-        topLeft = Offset(left - 20f, top - 20f),
-        size = Size(width + 40f, height + 40f)
-    )
+    // Advanced Corners
+    val path = Path().apply {
+        // TL
+        moveTo(left, top + cornerLen)
+        lineTo(left, top)
+        lineTo(left + cornerLen, top)
+        // TR
+        moveTo(left + width - cornerLen, top)
+        lineTo(left + width, top)
+        lineTo(left + width, top + cornerLen)
+        // BR
+        moveTo(left + width, top + height - cornerLen)
+        lineTo(left + width, top + height)
+        lineTo(left + width - cornerLen, top + height)
+        // BL
+        moveTo(left + cornerLen, top + height)
+        lineTo(left, top + height)
+        lineTo(left, top + height - cornerLen)
+    }
+    
+    drawPath(path, mainColor, style = Stroke(strokeWidth))
 
-    // Label
-    val paint = android.graphics.Paint().apply {
-        this.color = color.toArgb()
-        textSize = 40f
+    // Label HUD
+    val labelPaint = android.graphics.Paint().apply {
+        this.color = mainColor.toArgb()
+        textSize = 36f
         isFakeBoldText = true
         typeface = android.graphics.Typeface.MONOSPACE
+        letterSpacing = 0.1f
     }
+    
+    val padding = 10f
+    val textWidth = labelPaint.measureText(label.uppercase())
+    
+    // Label label bg
+    drawRect(
+        color = Color.Black.copy(0.6f),
+        topLeft = Offset(left, top - 50f),
+        size = Size(textWidth + 20f, 50f)
+    )
+    
     drawContext.canvas.nativeCanvas.drawText(
         label.uppercase(),
-        left,
-        top - 10f,
-        paint
+        left + 10f,
+        top - 15f,
+        labelPaint
     )
+    
+    // Animated circle for "scanning"
+    if (isLoading) {
+        drawCircle(
+            color = color,
+            radius = 5f,
+            center = Offset(left + textWidth + 40f, top - 25f),
+            alpha = 0.8f
+        )
+    }
 }
-
-fun Color.toArgb() = (alpha * 255.0f + 0.5f).toInt() shl 24 or
-    (red * 255.0f + 0.5f).toInt() shl 16 or
-    (green * 255.0f + 0.5f).toInt() shl 8 or
-    (blue * 255.0f + 0.5f).toInt()
 
 @Composable
 fun InfoCard(
@@ -378,18 +467,18 @@ fun InfoCard(
     onDismiss: () -> Unit,
     onFullDetail: () -> Unit
 ) {
-    Card(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
-            .border(1.dp, Color(0xFF00FBFF).copy(0.3f), RoundedCornerShape(24.dp)),
-        colors = CardDefaults.cardColors(containerColor = Color.Black.copy(0.9f)),
-        shape = RoundedCornerShape(24.dp)
+            .padding(20.dp)
+            .clip(RoundedCornerShape(topStart = 32.dp, bottomEnd = 32.dp))
+            .background(Color.Black.copy(0.95f))
+            .border(1.dp, Color(0xFF00FBFF).copy(0.5f), RoundedCornerShape(topStart = 32.dp, bottomEnd = 32.dp))
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    obj.info?.name?.uppercase() ?: obj.labels.firstOrNull()?.uppercase() ?: "UNKNOWN",
+                    obj.info?.name?.uppercase() ?: obj.labels.firstOrNull()?.uppercase() ?: "SCANNING SOURCE...",
                     style = MaterialTheme.typography.titleMedium,
                     color = Color(0xFF00FBFF),
                     fontFamily = FontFamily.Monospace,
@@ -397,29 +486,30 @@ fun InfoCard(
                 )
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.Close, null, tint = Color.Gray)
+                    Icon(Icons.Default.Close, null, tint = Color.White.copy(0.5f))
                 }
             }
             
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             
             Text(
-                obj.info?.description?.take(150)?.let { if (it.length >= 150) "$it..." else it } 
-                    ?: "Анализ данных субъекта... Инициализация энциклопедического модуля Wikipedia.",
-                color = Color.White.copy(0.8f),
-                style = MaterialTheme.typography.bodySmall
+                obj.info?.description?.take(160)?.let { if (it.length >= 160) "$it..." else it } 
+                    ?: "DATA_EXTRACTION_IN_PROGRESS... ACCESSING GLOBAL INFORMATION REPOSITORY (WIKIPEDIA)... STABILIZING FEED.",
+                color = Color.White.copy(0.85f),
+                style = MaterialTheme.typography.bodySmall,
+                lineHeight = 18.sp
             )
 
             if (obj.info != null) {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(20.dp))
                 Button(
                     onClick = onFullDetail,
-                    modifier = Modifier.fillMaxWidth().height(44.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FBFF).copy(0.1f)),
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                     shape = RoundedCornerShape(12.dp),
-                    border = border(width = 1.dp, color = Color(0xFF00FBFF).copy(0.5f)).border
+                    border = border(width = 1.dp, color = Color(0xFF00FBFF).copy(0.6f)).border
                 ) {
-                    Text("ПОЛНЫЙ ДОСТУП", color = Color(0xFF00FBFF), fontSize = 12.sp)
+                    Text("OPEN FULL DATA STREAM", color = Color(0xFF00FBFF), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -438,41 +528,41 @@ fun FullScreenDetail(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black)
+                .background(Color(0xFF050505))
                 .drawWithContent {
                     drawContent()
-                    // Scanning line effect
-                    drawRect(
-                        brush = Brush.verticalGradient(
-                            listOf(Color.Transparent, Color(0xFF00FBFF).copy(0.2f), Color.Transparent),
-                            startY = 0f,
-                            endY = size.height
-                        ),
-                        alpha = 0.3f
-                    )
+                    // HUD lines
+                    drawLine(Color(0xFF00FBFF).copy(0.1f), Offset(0f, 100f), Offset(size.width, 100f), 1f)
                 }
         ) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(24.dp)
+                    .padding(32.dp)
             ) {
                 item {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            info.name.uppercase(),
-                            color = Color(0xFF00FBFF),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Black
-                        )
+                        Column {
+                            Text(
+                                "CLASSIFICATION: ${info.name.uppercase()}",
+                                color = Color(0xFF00FBFF),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Text(
+                                info.name,
+                                color = Color.White,
+                                style = MaterialTheme.typography.headlineLarge,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
                         Spacer(Modifier.weight(1f))
-                        IconButton(onClick = onDismiss) {
+                        IconButton(onClick = onDismiss, modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)) {
                             Icon(Icons.Default.Close, null, tint = Color.White)
                         }
                     }
                     
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(32.dp))
                     
                     if (info.thumbnailUrl != null) {
                         AsyncImage(
@@ -480,32 +570,39 @@ fun FullScreenDetail(
                             contentDescription = null,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(300.dp)
-                                .clip(RoundedCornerShape(20.dp))
-                                .border(1.dp, Color(0xFF00FBFF).copy(0.3f), RoundedCornerShape(20.dp)),
+                                .height(340.dp)
+                                .clip(RoundedCornerShape(bottomStart = 40.dp, topEnd = 40.dp))
+                                .border(1.dp, Color(0xFF00FBFF).copy(0.4f), RoundedCornerShape(bottomStart = 40.dp, topEnd = 40.dp)),
                             contentScale = ContentScale.Crop
                         )
-                        Spacer(Modifier.height(24.dp))
+                        Spacer(Modifier.height(32.dp))
                     }
 
                     Text(
-                        "DATA_STREAM_CONNECTED",
+                        "ANALYSIS_SUMMARY",
                         color = Color(0xFF00FBFF),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
                     )
-                    HorizontalDivider(color = Color(0xFF00FBFF).copy(0.2f), modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(color = Color(0xFF00FBFF).copy(0.3f), modifier = Modifier.padding(vertical = 12.dp))
                     
                     Text(
                         info.description,
                         color = Color.White.copy(0.9f),
                         style = MaterialTheme.typography.bodyLarge,
-                        lineHeight = 28.sp
+                        lineHeight = 30.sp,
+                        fontWeight = FontWeight.Normal
                     )
                     
-                    Spacer(Modifier.height(40.dp))
+                    Spacer(Modifier.height(60.dp))
                 }
             }
         }
     }
 }
+
+fun Color.toArgb() = (alpha * 255.0f + 0.5f).toInt() shl 24 or
+    (red * 255.0f + 0.5f).toInt() shl 16 or
+    (green * 255.0f + 0.5f).toInt() shl 8 or
+    (blue * 255.0f + 0.5f).toInt()

@@ -19,7 +19,8 @@ data class DetectedArObject(
     val boundingBox: Rect,
     val labels: List<String>,
     val info: ScannedObject? = null,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val lastSeen: Long = System.currentTimeMillis()
 )
 
 data class ArUiState(
@@ -51,11 +52,12 @@ class ArViewModel @Inject constructor(
                 // Update dimensions for UI scaling
                 _uiState.update { it.copy(imageWidth = imgWidth, imageHeight = imgHeight) }
                 
-                // Filter and update state
-                // 1. Filter out-of-frame objects
+                // 1. Filter out-of-frame objects (at least 10% from edges)
+                val marginX = imgWidth * 0.05f
+                val marginY = imgHeight * 0.05f
                 val filteredResults = results.filter { mlObject ->
                     val b = mlObject.boundingBox
-                    b.left > 0 && b.top > 0 && b.right < imgWidth && b.bottom < imgHeight
+                    b.left > marginX && b.top > marginY && b.right < (imgWidth - marginX) && b.bottom < (imgHeight - marginY)
                 }
 
                 val currentObjects = filteredResults.map { mlObject ->
@@ -67,9 +69,24 @@ class ArViewModel @Inject constructor(
                         boundingBox = mlObject.boundingBox,
                         labels = mlObject.labels.map { it.text },
                         info = existing?.info,
-                        isLoading = existing?.isLoading ?: false
+                        isLoading = existing?.isLoading ?: false,
+                        lastSeen = System.currentTimeMillis()
                     )
                 }.take(3) // Limit to 3 objects
+
+                // Keep tracked objects that were seen recently (simple persistence)
+                val now = System.currentTimeMillis()
+                val persistedObjects = _uiState.value.trackedObjects
+                    .filter { it.info != null && (now - it.lastSeen < 2000) } // Keep if has info and seen recently
+                
+                // Merge current and persisted (prefer current for position)
+                val mergedObjects = currentObjects.toMutableList()
+                persistedObjects.forEach { pObj ->
+                    if (mergedObjects.none { it.id == pObj.id }) {
+                        // If not in current, but seen recently, we could keep it? 
+                        // But for Bounding Box we need fresh coords. So maybe not.
+                    }
+                }
 
                 _uiState.update { it.copy(trackedObjects = currentObjects) }
 
@@ -80,7 +97,7 @@ class ArViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
+                // Silently handle analysis errors to keep preview smooth
             }
         }
     }

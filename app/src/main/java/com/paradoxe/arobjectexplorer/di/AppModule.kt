@@ -2,7 +2,7 @@ package com.paradoxe.arobjectexplorer.di
 
 import android.content.Context
 import androidx.room.Room
-import com.google.mlkit.vision.objects.ObjectExtraction
+import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.ObjectDetector
 import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
 import com.paradoxe.arobjectexplorer.data.local.ParadoxeDatabase
@@ -42,7 +42,7 @@ object AppModule {
             .enableMultipleObjects()
             .enableClassification()
             .build()
-        return ObjectExtraction.getClient(options)
+        return ObjectDetection.getClient(options)
     }
 
     @Provides
