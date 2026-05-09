@@ -52,7 +52,7 @@ class ArViewModel @Inject constructor(
                 // Update dimensions for UI scaling
                 _uiState.update { it.copy(imageWidth = imgWidth, imageHeight = imgHeight) }
                 
-                // 1. Filter out-of-frame objects (at least 10% from edges)
+                // 1. Фильтрация объектов: игнорируем те, что слишком близко к краям (5% отступа)
                 val marginX = imgWidth * 0.05f
                 val marginY = imgHeight * 0.05f
                 val filteredResults = results.filter { mlObject ->
@@ -60,6 +60,7 @@ class ArViewModel @Inject constructor(
                     b.left > marginX && b.top > marginY && b.right < (imgWidth - marginX) && b.bottom < (imgHeight - marginY)
                 }
 
+                // 2. Лимит: до 3 объектов
                 val currentObjects = filteredResults.map { mlObject ->
                     val id = mlObject.trackingId ?: mlObject.hashCode()
                     val existing = _uiState.value.trackedObjects.find { it.id == id }
@@ -72,32 +73,18 @@ class ArViewModel @Inject constructor(
                         isLoading = existing?.isLoading ?: false,
                         lastSeen = System.currentTimeMillis()
                     )
-                }.take(3) // Limit to 3 objects
-
-                // Keep tracked objects that were seen recently (simple persistence)
-                val now = System.currentTimeMillis()
-                val persistedObjects = _uiState.value.trackedObjects
-                    .filter { it.info != null && (now - it.lastSeen < 2000) } // Keep if has info and seen recently
-                
-                // Merge current and persisted (prefer current for position)
-                val mergedObjects = currentObjects.toMutableList()
-                persistedObjects.forEach { pObj ->
-                    if (mergedObjects.none { it.id == pObj.id }) {
-                        // If not in current, but seen recently, we could keep it? 
-                        // But for Bounding Box we need fresh coords. So maybe not.
-                    }
-                }
+                }.take(3)
 
                 _uiState.update { it.copy(trackedObjects = currentObjects) }
 
-                // Fetch info for new objects or objects without info
+                // Автоматический запрос данных из Wikipedia для новых объектов
                 currentObjects.forEach { obj ->
                     if (obj.info == null && !obj.isLoading && obj.labels.isNotEmpty()) {
                         fetchObjectInfo(obj.id, obj.labels.first())
                     }
                 }
             } catch (e: Exception) {
-                // Silently handle analysis errors to keep preview smooth
+                // Ошибки анализа не должны прерывать поток камеры
             }
         }
     }
@@ -133,9 +120,5 @@ class ArViewModel @Inject constructor(
                 }
             )
         }
-    }
-
-    fun clearError() {
-        _uiState.update { it.copy(error = null) }
     }
 }
