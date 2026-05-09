@@ -2,11 +2,13 @@ package com.paradoxe.arobjectexplorer.di
 
 import android.content.Context
 import androidx.room.Room
+import com.google.mlkit.vision.objects.ObjectExtraction
+import com.google.mlkit.vision.objects.ObjectDetector
+import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
 import com.paradoxe.arobjectexplorer.data.local.ParadoxeDatabase
 import com.paradoxe.arobjectexplorer.data.local.SearchResultDao
 import com.paradoxe.arobjectexplorer.data.local.SettingsManager
 import com.paradoxe.arobjectexplorer.data.remote.WikipediaApi
-import com.paradoxe.arobjectexplorer.data.remote.YandexSearchApi
 import com.paradoxe.arobjectexplorer.data.repository.ObjectRepositoryImpl
 import com.paradoxe.arobjectexplorer.domain.repository.ObjectRepository
 import dagger.Module
@@ -24,22 +26,23 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideYandexApi(): YandexSearchApi {
-        return Retrofit.Builder()
-            .baseUrl("https://vision.api.cloud.yandex.net/")
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-            .create(YandexSearchApi::class.java)
-    }
-
-    @Provides
-    @Singleton
     fun provideWikipediaApi(): WikipediaApi {
         return Retrofit.Builder()
             .baseUrl("https://ru.wikipedia.org/")
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(WikipediaApi::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideObjectDetector(): ObjectDetector {
+        val options = ObjectDetectorOptions.Builder()
+            .setDetectorMode(ObjectDetectorOptions.STREAM_MODE)
+            .enableMultipleObjects()
+            .enableClassification()
+            .build()
+        return ObjectExtraction.getClient(options)
     }
 
     @Provides
@@ -62,8 +65,7 @@ object AppModule {
     @Provides
     @Singleton
     fun provideObjectRepository(
-        yandexApi: YandexSearchApi,
         wikipediaApi: WikipediaApi,
         dao: SearchResultDao
-    ): ObjectRepository = ObjectRepositoryImpl(yandexApi, wikipediaApi, dao)
+    ): ObjectRepository = ObjectRepositoryImpl(wikipediaApi, dao)
 }

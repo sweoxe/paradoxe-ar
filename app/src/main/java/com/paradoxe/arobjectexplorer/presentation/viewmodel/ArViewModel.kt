@@ -1,74 +1,124 @@
 package com.paradoxe.arobjectexplorer.presentation.viewmodel
 
+import android.graphics.Rect
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.objects.ObjectDetector
 import com.paradoxe.arobjectexplorer.data.local.SettingsManager
 import com.paradoxe.arobjectexplorer.domain.models.ScannedObject
 import com.paradoxe.arobjectexplorer.domain.repository.ObjectRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
+data class DetectedArObject(
+    val id: Int,
+    val boundingBox: Rect,
+    val labels: List<String>,
+    val info: ScannedObject? = null,
+    val isLoading: Boolean = false
+)
+
 data class ArUiState(
-    val detectedObject: ScannedObject? = null,
+    val trackedObjects: List<DetectedArObject> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
-    val updateInterval: Long = 2500L,
     val lang: String = "ru",
-    val iamToken: String = "",
-    val folderId: String = ""
+    val imageWidth: Int = 480,
+    val imageHeight: Int = 640
 )
 
 @HiltViewModel
 class ArViewModel @Inject constructor(
     private val repository: ObjectRepository,
+    private val detector: ObjectDetector,
     private val settingsManager: SettingsManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ArUiState())
     val uiState: StateFlow<ArUiState> = _uiState.asStateFlow()
 
-    init {
+    fun processImage(image: InputImage) {
         viewModelScope.launch {
-            combine(
-                settingsManager.iamToken,
-                settingsManager.folderId,
-                settingsManager.updateInterval
-            ) { token, folder, interval ->
-                Triple(token, folder, interval)
-            }.collect { (token, folder, interval) ->
-                _uiState.update { it.copy(
-                    iamToken = token,
-                    folderId = folder,
-                    updateInterval = interval
-                ) }
+            try {
+                val results = detector.process(image).await()
+                val imgWidth = image.width
+                val imgHeight = image.height
+                
+                // Update dimensions for UI scaling
+                _uiState.update { it.copy(imageWidth = imgWidth, imageHeight = imgHeight) }
+                
+                // Filter and update state
+                // 1. Filter out-of-frame objects
+                val filteredResults = results.filter { mlObject ->
+                    val b = mlObject.boundingBox
+                    b.left > 0 && b.top > 0 && b.right < imgWidth && b.bottom < imgHeight
+                }
+
+                val currentObjects = filteredResults.map { mlObject ->
+                    val id = mlObject.trackingId ?: mlObject.hashCode()
+                    val existing = _uiState.value.trackedObjects.find { it.id == id }
+                    
+                    DetectedArObject(
+                        id = id,
+                        boundingBox = mlObject.boundingBox,
+                        labels = mlObject.labels.map { it.text },
+                        info = existing?.info,
+                        isLoading = existing?.isLoading ?: false
+                    )
+                }.take(3) // Limit to 3 objects
+
+                _uiState.update { it.copy(trackedObjects = currentObjects) }
+
+                // Fetch info for new objects or objects without info
+                currentObjects.forEach { obj ->
+                    if (obj.info == null && !obj.isLoading && obj.labels.isNotEmpty()) {
+                        fetchObjectInfo(obj.id, obj.labels.first())
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
             }
         }
     }
 
-    fun onProcessFrame(imageBase64: String, imageHash: String) {
-        val state = _uiState.value
-        if (state.isLoading || state.iamToken.isEmpty() || state.folderId.isEmpty()) return
-
+    private fun fetchObjectInfo(objectId: Int, label: String) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-
-            repository.identifyObject(
-                imageBase64 = imageBase64,
-                imageHash = imageHash,
-                iamToken = state.iamToken,
-                folderId = state.folderId,
-                lang = state.lang
-            ).onSuccess { scannedObject ->
-                _uiState.update { it.copy(detectedObject = scannedObject, isLoading = false) }
-            }.onFailure { exception ->
-                _uiState.update { it.copy(isLoading = false, error = exception.message) }
-            }
+            updateObjectLoading(objectId, true)
+            repository.getObjectInfo(label, _uiState.value.lang)
+                .onSuccess { info ->
+                    updateObjectInfo(objectId, info)
+                }
+                .onFailure {
+                    updateObjectLoading(objectId, false)
+                }
         }
     }
 
-    fun clearDetection() {
-        _uiState.update { it.copy(detectedObject = null) }
+    private fun updateObjectLoading(objectId: Int, isLoading: Boolean) {
+        _uiState.update { state ->
+            state.copy(
+                trackedObjects = state.trackedObjects.map {
+                    if (it.id == objectId) it.copy(isLoading = isLoading) else it
+                }
+            )
+        }
+    }
+
+    private fun updateObjectInfo(objectId: Int, info: ScannedObject) {
+        _uiState.update { state ->
+            state.copy(
+                trackedObjects = state.trackedObjects.map {
+                    if (it.id == objectId) it.copy(info = info, isLoading = false) else it
+                }
+            )
+        }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
     }
 }

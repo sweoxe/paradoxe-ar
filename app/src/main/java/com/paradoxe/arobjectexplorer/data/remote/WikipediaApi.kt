@@ -9,7 +9,24 @@ interface WikipediaApi {
     suspend fun getPageSummary(
         @Path("title") title: String
     ): WikipediaSummary
+
+    @GET("w/api.php?action=query&list=search&format=json&srlimit=1")
+    suspend fun searchPage(
+        @retrofit2.http.Query("srsearch") query: String
+    ): WikipediaSearchResponse
 }
+
+data class WikipediaSearchResponse(
+    @SerializedName("query") val query: WikipediaQuery
+)
+
+data class WikipediaQuery(
+    @SerializedName("search") val search: List<WikipediaSearchResult>
+)
+
+data class WikipediaSearchResult(
+    @SerializedName("title") val title: String
+)
 
 data class WikipediaSummary(
     @SerializedName("title") val title: String,

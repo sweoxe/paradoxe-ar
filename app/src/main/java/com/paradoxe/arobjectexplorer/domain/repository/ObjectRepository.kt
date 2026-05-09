@@ -4,11 +4,8 @@ import com.paradoxe.arobjectexplorer.domain.models.ScannedObject
 import kotlinx.coroutines.flow.Flow
 
 interface ObjectRepository {
-    suspend fun identifyObject(
-        imageBase64: String,
-        imageHash: String,
-        iamToken: String,
-        folderId: String,
+    suspend fun getObjectInfo(
+        label: String,
         lang: String = "ru"
     ): Result<ScannedObject>
 }

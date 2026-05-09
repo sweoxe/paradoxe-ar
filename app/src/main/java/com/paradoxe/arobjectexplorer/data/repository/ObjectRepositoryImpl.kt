@@ -3,27 +3,21 @@ package com.paradoxe.arobjectexplorer.data.repository
 import com.paradoxe.arobjectexplorer.data.local.SearchResultDao
 import com.paradoxe.arobjectexplorer.data.local.SearchResultEntity
 import com.paradoxe.arobjectexplorer.data.remote.WikipediaApi
-import com.paradoxe.arobjectexplorer.data.remote.YandexImageSearchRequest
-import com.paradoxe.arobjectexplorer.data.remote.YandexSearchApi
 import com.paradoxe.arobjectexplorer.domain.models.ScannedObject
 import com.paradoxe.arobjectexplorer.domain.repository.ObjectRepository
 import javax.inject.Inject
 
 class ObjectRepositoryImpl @Inject constructor(
-    private val yandexApi: YandexSearchApi,
     private val wikipediaApi: WikipediaApi,
     private val searchResultDao: SearchResultDao
 ) : ObjectRepository {
 
-    override suspend fun identifyObject(
-        imageBase64: String,
-        imageHash: String,
-        iamToken: String,
-        folderId: String,
+    override suspend fun getObjectInfo(
+        label: String,
         lang: String
     ): Result<ScannedObject> {
         // 1. Check Cache
-        val cached = searchResultDao.getResultByHash(imageHash)
+        val cached = searchResultDao.getResultByHash(label)
         if (cached != null) {
             return Result.success(ScannedObject(
                 id = cached.imageHash,
@@ -35,22 +29,16 @@ class ObjectRepositoryImpl @Inject constructor(
         }
 
         return try {
-            // 2. Yandex Image Search
-            val yandexResponse = yandexApi.searchByImage(
-                iamToken = "Bearer $iamToken",
-                folderId = folderId,
-                request = YandexImageSearchRequest(imageBase64)
-            )
+            // 2. Search Wikipedia title
+            val searchResponse = wikipediaApi.searchPage(label)
+            val pageTitle = searchResponse.query.search.firstOrNull()?.title 
+                ?: return Result.failure(Exception("Not found on Wikipedia"))
 
-            val bestMatch = yandexResponse.results.firstOrNull()?.let {
-                it.pageTitle ?: it.title ?: it.snippet
-            } ?: return Result.failure(Exception("Object not recognized"))
-
-            // 3. Wikipedia API
-            val wikiSummary = wikipediaApi.getPageSummary(bestMatch)
+            // 3. Get Wikipedia Summary
+            val wikiSummary = wikipediaApi.getPageSummary(pageTitle)
 
             val scannedObject = ScannedObject(
-                id = imageHash,
+                id = label, // Use label as ID/Hash for cache
                 name = wikiSummary.title,
                 description = wikiSummary.extract,
                 thumbnailUrl = wikiSummary.thumbnail?.source,
@@ -59,7 +47,7 @@ class ObjectRepositoryImpl @Inject constructor(
 
             // 4. Cache Result
             searchResultDao.insertResult(SearchResultEntity(
-                imageHash = imageHash,
+                imageHash = label,
                 objectName = scannedObject.name,
                 description = scannedObject.description,
                 thumbnailUrl = scannedObject.thumbnailUrl,
